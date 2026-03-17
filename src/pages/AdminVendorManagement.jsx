@@ -84,10 +84,10 @@ export default function AdminVendorManagement() {
                                 <span className="material-symbols-outlined">grid_view</span>
                                 <span className="text-sm font-medium">Dashboard</span>
                             </Link>
-                            <a href="#" className="flex items-center gap-3 rounded-lg px-3 py-2 text-text-sub hover:bg-primary-light hover:text-primary transition-colors">
+                            <Link to="/admin/bookings" className="flex items-center gap-3 rounded-lg px-3 py-2 text-text-sub hover:bg-primary-light hover:text-primary transition-colors">
                                 <span className="material-symbols-outlined">calendar_month</span>
                                 <span className="text-sm font-medium">Bookings</span>
-                            </a>
+                            </Link>
                             <Link to="/admin/vendors" className="flex items-center gap-3 rounded-lg bg-primary-light px-3 py-2 text-primary">
                                 <span className="material-symbols-outlined fill-1">group</span>
                                 <span className="text-sm font-medium">Vendors</span>

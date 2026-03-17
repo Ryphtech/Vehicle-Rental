@@ -31,60 +31,84 @@ export default function AdminDashboard() {
             try {
                 setLoading(true);
 
+                let vendorsCount = 0;
+                let vendorSnap = [];
                 // 1. Count Vendors
-                const vendorQ = query(collection(db, "users"), where("role", "==", "vendor"));
-                const vendorSnap = await getDocs(vendorQ);
-                const vendorsCount = vendorSnap.size;
+                try {
+                    const vendorQ = query(collection(db, "users"), where("role", "==", "vendor"));
+                    vendorSnap = await getDocs(vendorQ);
+                    vendorsCount = vendorSnap.size;
+                } catch (e) {
+                    console.error("Users query failed:", e);
+                    toast.error("Access denied to 'users' collection. Please check Firestore security rules.");
+                }
 
-                // 2. Fetch Bookings (for counts & recent activities)
-                const bookingSnap = await getDocs(collection(db, "bookings"));
                 let totalRevenue = 0;
                 let activeCount = 0;
-                
                 const bookingsList = [];
-                bookingSnap.forEach(docSnap => {
-                    const bData = { id: docSnap.id, ...docSnap.data() };
-                    bookingsList.push(bData);
-                    
-                    if (bData.status === 'confirmed' || bData.status === 'active') {
-                        activeCount++;
-                    }
-                    if (bData.totalPrice) {
-                        totalRevenue += Number(bData.totalPrice);
-                    }
-                });
-
-                // 3. Fetch Vehicles for fleet distribution
-                const vehicleSnap = await getDocs(collection(db, "vehicles"));
-                let totalVehicles = vehicleSnap.size;
-                let vehicleCounts = { Sedan: 0, SUV: 0, Other: 0 };
                 
-                vehicleSnap.forEach(vDoc => {
-                    const vData = vDoc.data();
-                    const category = vData.category || 'Other';
-                    if (vehicleCounts[category] !== undefined) {
-                        vehicleCounts[category]++;
-                    } else {
-                        vehicleCounts.Other++;
-                    }
-                });
+                // 2. Fetch Bookings
+                try {
+                    const bookingSnap = await getDocs(collection(db, "bookings"));
+                    bookingSnap.forEach(docSnap => {
+                        const bData = { id: docSnap.id, ...docSnap.data() };
+                        bookingsList.push(bData);
+                        
+                        if (bData.status === 'confirmed' || bData.status === 'active') {
+                            activeCount++;
+                        }
+                        if (bData.totalPrice) {
+                            totalRevenue += Number(bData.totalPrice);
+                        }
+                    });
+                } catch (e) {
+                    console.error("Bookings query failed:", e);
+                    toast.error("Access denied to 'bookings' collection. Please check Firestore security rules.");
+                }
 
-                const totalForPct = totalVehicles > 0 ? totalVehicles : 1;
-                setVehicleAvailability({
-                    Sedan: Math.round((vehicleCounts.Sedan / totalForPct) * 100),
-                    SUV: Math.round((vehicleCounts.SUV / totalForPct) * 100),
-                    Other: Math.round((vehicleCounts.Other / totalForPct) * 100)
-                });
+                // 3. Fetch Vehicles
+                try {
+                    const vehicleSnap = await getDocs(collection(db, "vehicles"));
+                    let totalVehicles = vehicleSnap.size;
+                    let vehicleCounts = { Sedan: 0, SUV: 0, Other: 0 };
+                    
+                    vehicleSnap.forEach(vDoc => {
+                        const vData = vDoc.data();
+                        const category = vData.category || 'Other';
+                        if (vehicleCounts[category] !== undefined) {
+                            vehicleCounts[category]++;
+                        } else {
+                            vehicleCounts.Other++;
+                        }
+                    });
 
-                // Get pending vendors/approvals from user table if status is pending
-                const pendingQ = query(collection(db, "users"), where("role", "==", "vendor"), where("status", "==", "pending"));
-                const pendingSnap = await getDocs(pendingQ);
+                    const totalForPct = totalVehicles > 0 ? totalVehicles : 1;
+                    setVehicleAvailability({
+                        Sedan: Math.round((vehicleCounts.Sedan / totalForPct) * 100),
+                        SUV: Math.round((vehicleCounts.SUV / totalForPct) * 100),
+                        Other: Math.round((vehicleCounts.Other / totalForPct) * 100)
+                    });
+                } catch (e) {
+                    console.error("Vehicles query failed:", e);
+                    toast.error("Access denied to 'vehicles' collection. Please check Firestore security rules.");
+                }
+
+                // Filter pending approvals client-side from vendorSnap to avoid index errors
+                let pendingCount = 0;
+                if (vendorSnap.forEach) {
+                    vendorSnap.forEach(doc => {
+                        const uData = doc.data();
+                        if (uData.status === 'pending' || uData.status === 'Pending') {
+                            pendingCount++;
+                        }
+                    });
+                }
 
                 setStats({
                     revenue: totalRevenue,
                     activeBookings: activeCount,
                     totalVendors: vendorsCount,
-                    pendingApprovals: pendingSnap.size
+                    pendingApprovals: pendingCount
                 });
 
                 // Sort and limit recent bookings
@@ -96,7 +120,7 @@ export default function AdminDashboard() {
 
             } catch (error) {
                 console.error("Error fetching dashboard data:", error);
-                toast.error("Failed to load dashboard metrics.");
+                toast.error("Failed to load dashboard metrics: " + error.message);
             } finally {
                 setLoading(false);
             }
@@ -146,10 +170,10 @@ export default function AdminDashboard() {
                             <span className="material-symbols-outlined">storefront</span>
                             Vendor Management
                         </Link>
-                        <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 transition-colors font-medium">
+                        <Link to="/admin/bookings" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 transition-colors font-medium">
                             <span className="material-symbols-outlined">calendar_month</span>
                             Bookings
-                        </a>
+                        </Link>
                         <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 transition-colors font-medium">
                             <span className="material-symbols-outlined">group</span>
                             User Management

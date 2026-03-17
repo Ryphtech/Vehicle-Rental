@@ -13,6 +13,7 @@ import VendorBookings from './pages/VendorBookings';
 import AccountSettings from './pages/AccountSettings';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminVendorManagement from './pages/AdminVendorManagement';
+import AdminBookings from './pages/AdminBookings';
 import DevTools from './pages/DevTools';
 import { AuthProvider } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
@@ -36,6 +37,7 @@ function App() {
           <Route path="/vendor/bookings" element={<VendorBookings />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/vendors" element={<AdminVendorManagement />} />
+          <Route path="/admin/bookings" element={<AdminBookings />} />
           <Route path="/dev-tools" element={<DevTools />} />
         </Routes>
       </Router>

@@ -4,11 +4,49 @@ import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export default function AdminVendorManagement() {
     const { currentUser, userData } = useAuth();
     const navigate = useNavigate();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    
+    // Real Data State
+    const [vendors, setVendors] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    React.useEffect(() => {
+        const fetchVendors = async () => {
+            try {
+                setLoading(true);
+                // 1. Fetch all users who are vendors
+                const q = query(collection(db, "users"), where("role", "==", "vendor"));
+                const querySnapshot = await getDocs(q);
+                
+                const vendorData = [];
+                for (const docSnap of querySnapshot.docs) {
+                    const vData = { id: docSnap.id, ...docSnap.data() };
+                    
+                    // 2. Fetch vehicle count for this vendor
+                    const vehQ = query(collection(db, "vehicles"), where("vendorId", "==", docSnap.id));
+                    const vehSnap = await getDocs(vehQ);
+                    vData.vehicleCount = vehSnap.size;
+                    
+                    vendorData.push(vData);
+                }
+                
+                setVendors(vendorData);
+            } catch (error) {
+                console.error("Error fetching vendors:", error);
+                toast.error("Failed to load vendors.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchVendors();
+    }, []);
 
     const handleLogout = async () => {
         try {
@@ -36,7 +74,7 @@ export default function AdminVendorManagement() {
                             <div className="size-8 rounded bg-primary/10 flex items-center justify-center">
                                 <span className="material-symbols-outlined text-primary">directions_car</span>
                             </div>
-                            <h2 className="text-lg font-bold tracking-tight text-text-main dark:text-white">RideAdmin</h2>
+                            <h2 className="text-lg font-bold tracking-tight text-text-main dark:text-white">Wheels Live</h2>
                         </div>
                     </div>
 
@@ -152,210 +190,58 @@ export default function AdminVendorManagement() {
                             </div>
 
                             {/* Grid Layout */}
-                            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {/* Card 1 */}
-                                <div className="group relative flex flex-col justify-between rounded-xl border border-border-light bg-surface-light p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:border-border-dark dark:bg-surface-dark">
-                                    <div className="absolute right-4 top-4">
-                                        <button className="text-text-sub hover:text-primary">
-                                            <span className="material-symbols-outlined">more_vert</span>
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                        <div className="relative mb-4 h-20 w-20 overflow-hidden rounded-full border-4 border-background-light dark:border-background-dark">
-                                            <img alt="Apex Rentals Logo" className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-t0Gd5tB73fs8DORfeZQnY9jlCvvq2WmVvJW4W7D3pulUp8PeX2FN0047q1hkODwYauei_X6yHPhHec0tH-XruyDP77vYVPeZueCywa3brbyQF8Qv3cixNpCVeGjzrDF-1sQLYfB9_XUxOPrQSAD2aH0dzt873sHlUdFBTGzyFpusrmOd5urbGZNl-uYqUa4rl5p7vfyiM8GYH6lYzoeCXB8Rw7bDgyxFAbXNMPxVShCnLXPkmECZH4qvOlTHbmqmzokS2ACv-OM" />
-                                            <div className="absolute bottom-0 right-0 h-5 w-5 rounded-full border-2 border-white bg-green-500"></div>
-                                        </div>
-                                        <h3 className="text-lg font-bold text-text-main dark:text-white">Apex Rentals</h3>
-                                        <p className="text-sm text-text-sub">North America</p>
-                                        <span className="mt-2 inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20 dark:bg-green-900/30 dark:text-green-400">Verified</span>
-                                    </div>
-                                    <div className="mt-6 grid grid-cols-2 divide-x divide-border-light border-t border-border-light pt-4 dark:divide-border-dark dark:border-border-dark">
-                                        <div className="flex flex-col items-center px-2">
-                                            <span className="text-lg font-bold text-text-main dark:text-white">124</span>
-                                            <span className="text-xs text-text-sub">Vehicles</span>
-                                        </div>
-                                        <div className="flex flex-col items-center px-2">
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-lg font-bold text-text-main dark:text-white">4.8</span>
-                                                <span className="material-symbols-outlined text-sm text-yellow-400 fill-1">star</span>
-                                            </div>
-                                            <span className="text-xs text-text-sub">Rating</span>
-                                        </div>
-                                    </div>
-                                    <button className="mt-4 w-full rounded-lg bg-primary/10 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white transition-colors">
-                                        View Profile
-                                    </button>
+                            {loading ? (
+                                <div className="flex items-center justify-center p-12">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                                 </div>
-
-                                {/* Card 2 */}
-                                <div className="group relative flex flex-col justify-between rounded-xl border border-border-light bg-surface-light p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:border-border-dark dark:bg-surface-dark">
-                                    <div className="absolute right-4 top-4">
-                                        <button className="text-text-sub hover:text-primary">
-                                            <span className="material-symbols-outlined">more_vert</span>
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                        <div className="relative mb-4 h-20 w-20 overflow-hidden rounded-full border-4 border-background-light dark:border-background-dark">
-                                            <img alt="Urban Mobility Logo" className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtbU6wlMmAnoCDJ-mkt1dRI1dRvotJ32Fevy8u4UK4Red29OSATIAbGTeZc5HUTas7Rp1Fk8qLaP-ElwwDqUpcbIuwMopJI-wMfVhNrrDy2CBhvTK0LEn0xeEh1kT8q6p8ndNO5_vqDAkUunZQuAmOlKn-a02sxqJVe2Ei4gVbTB8XI1NCgzj4I75VC2WkiKgDWWaWy5qFTFMUd670xy4F8qczeP5w6ljKDl3lzvCgW6n_7poxWSTtVZVOXD156evsoCZV1PXXs8o" />
-                                        </div>
-                                        <h3 className="text-lg font-bold text-text-main dark:text-white">Urban Mobility</h3>
-                                        <p className="text-sm text-text-sub">Europe</p>
-                                        <span className="mt-2 inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20 dark:bg-yellow-900/30 dark:text-yellow-400">Pending Review</span>
-                                    </div>
-                                    <div className="mt-6 grid grid-cols-2 divide-x divide-border-light border-t border-border-light pt-4 dark:divide-border-dark dark:border-border-dark">
-                                        <div className="flex flex-col items-center px-2">
-                                            <span className="text-lg font-bold text-text-main dark:text-white">45</span>
-                                            <span className="text-xs text-text-sub">Vehicles</span>
-                                        </div>
-                                        <div className="flex flex-col items-center px-2">
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-lg font-bold text-text-main dark:text-white">-</span>
-                                            </div>
-                                            <span className="text-xs text-text-sub">Rating</span>
-                                        </div>
-                                    </div>
-                                    <button className="mt-4 w-full rounded-lg bg-primary/10 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white transition-colors">
-                                        Review App
-                                    </button>
+                            ) : vendors.length === 0 ? (
+                                <div className="text-center py-12 text-text-sub">
+                                    No vendors found.
                                 </div>
-
-                                {/* Card 3 */}
-                                <div className="group relative flex flex-col justify-between rounded-xl border border-border-light bg-surface-light p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:border-border-dark dark:bg-surface-dark">
-                                    <div className="absolute right-4 top-4">
-                                        <button className="text-text-sub hover:text-primary">
-                                            <span className="material-symbols-outlined">more_vert</span>
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                        <div className="relative mb-4 h-20 w-20 overflow-hidden rounded-full border-4 border-background-light dark:border-background-dark">
-                                            <img alt="BlueWave Tours Logo" className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjIA8Dfe2u3Y3HWmjaGXQAZobIuz0HsNU-oSmQ39HSVorj99sGJZV1o9Gd8qWQRbPkqS95BE3ZmdqSfrFapsSue_SoecReCKDx0xAQPeMNcjUjEH6XaJcBvSfgDYdD-id2krYsoy3AKecYcjS7zdpFbvWjSN28-Dos0A2ZVb-Ty_Pizm5kAZBo7muTOuLSUD2pC3XgMt067ce-Avy4VwHAO0ljGJQUiIKPRVnS0rF3IpwsSaXfME-SrNTvuOK5OANp6cpJ_FdDcYI" />
-                                            <div className="absolute bottom-0 right-0 h-5 w-5 rounded-full border-2 border-white bg-green-500"></div>
-                                        </div>
-                                        <h3 className="text-lg font-bold text-text-main dark:text-white">BlueWave Tours</h3>
-                                        <p className="text-sm text-text-sub">Asia Pacific</p>
-                                        <span className="mt-2 inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20 dark:bg-green-900/30 dark:text-green-400">Verified</span>
-                                    </div>
-                                    <div className="mt-6 grid grid-cols-2 divide-x divide-border-light border-t border-border-light pt-4 dark:divide-border-dark dark:border-border-dark">
-                                        <div className="flex flex-col items-center px-2">
-                                            <span className="text-lg font-bold text-text-main dark:text-white">89</span>
-                                            <span className="text-xs text-text-sub">Vehicles</span>
-                                        </div>
-                                        <div className="flex flex-col items-center px-2">
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-lg font-bold text-text-main dark:text-white">4.9</span>
-                                                <span className="material-symbols-outlined text-sm text-yellow-400 fill-1">star</span>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                    {vendors.map(vendor => (
+                                        <div key={vendor.id} className="group relative flex flex-col justify-between rounded-xl border border-border-light bg-surface-light p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:border-border-dark dark:bg-surface-dark">
+                                            <div className="absolute right-4 top-4">
+                                                <button className="text-text-sub hover:text-primary">
+                                                    <span className="material-symbols-outlined">more_vert</span>
+                                                </button>
                                             </div>
-                                            <span className="text-xs text-text-sub">Rating</span>
+                                            <div className="flex flex-col items-center">
+                                                <div className="relative mb-4 h-20 w-20 overflow-hidden rounded-full border-4 border-background-light dark:border-background-dark">
+                                                    {vendor.logoUrl ? (
+                                                        <img alt={`${vendor.fullName || 'Vendor'} Logo`} className="h-full w-full object-cover" src={vendor.logoUrl} />
+                                                    ) : (
+                                                        <div className="flex h-full w-full items-center justify-center bg-primary/10 text-primary font-bold text-xl">
+                                                            {vendor.fullName ? vendor.fullName.charAt(0).toUpperCase() : 'V'}
+                                                        </div>
+                                                    )}
+                                                    <div className="absolute bottom-0 right-0 h-5 w-5 rounded-full border-2 border-white bg-green-500"></div>
+                                                </div>
+                                                <h3 className="text-lg font-bold text-text-main dark:text-white truncate w-full text-center">{vendor.fullName || 'Unnamed Vendor'}</h3>
+                                                <p className="text-sm text-text-sub truncate">{vendor.email}</p>
+                                                <span className="mt-2 inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20 dark:bg-green-900/30 dark:text-green-400">Active</span>
+                                            </div>
+                                            <div className="mt-6 grid grid-cols-2 divide-x divide-border-light border-t border-border-light pt-4 dark:divide-border-dark dark:border-border-dark">
+                                                <div className="flex flex-col items-center px-2">
+                                                    <span className="text-lg font-bold text-text-main dark:text-white">{vendor.vehicleCount || 0}</span>
+                                                    <span className="text-xs text-text-sub">Vehicles</span>
+                                                </div>
+                                                <div className="flex flex-col items-center px-2">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-lg font-bold text-text-main dark:text-white">N/A</span>
+                                                        <span className="material-symbols-outlined text-sm text-yellow-400">star</span>
+                                                    </div>
+                                                    <span className="text-xs text-text-sub">Rating</span>
+                                                </div>
+                                            </div>
+                                            <button className="mt-4 w-full rounded-lg bg-primary/10 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white transition-colors">
+                                                View Profile
+                                            </button>
                                         </div>
-                                    </div>
-                                    <button className="mt-4 w-full rounded-lg bg-primary/10 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white transition-colors">
-                                        View Profile
-                                    </button>
+                                    ))}
                                 </div>
-
-                                {/* Card 4 */}
-                                <div className="group relative flex flex-col justify-between rounded-xl border border-border-light bg-surface-light p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:border-border-dark dark:bg-surface-dark">
-                                    <div className="absolute right-4 top-4">
-                                        <button className="text-text-sub hover:text-primary">
-                                            <span className="material-symbols-outlined">more_vert</span>
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                        <div className="relative mb-4 h-20 w-20 overflow-hidden rounded-full border-4 border-background-light dark:border-background-dark">
-                                            <div className="flex h-full w-full items-center justify-center bg-gray-100 dark:bg-gray-800">
-                                                <span className="text-2xl font-bold text-gray-400 dark:text-gray-500">SR</span>
-                                            </div>
-                                        </div>
-                                        <h3 className="text-lg font-bold text-text-main dark:text-white">Swift Rides</h3>
-                                        <p className="text-sm text-text-sub">South America</p>
-                                        <span className="mt-2 inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20 dark:bg-red-900/30 dark:text-red-400">Suspended</span>
-                                    </div>
-                                    <div className="mt-6 grid grid-cols-2 divide-x divide-border-light border-t border-border-light pt-4 dark:divide-border-dark dark:border-border-dark">
-                                        <div className="flex flex-col items-center px-2">
-                                            <span className="text-lg font-bold text-text-main dark:text-white">12</span>
-                                            <span className="text-xs text-text-sub">Vehicles</span>
-                                        </div>
-                                        <div className="flex flex-col items-center px-2">
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-lg font-bold text-text-main dark:text-white">3.2</span>
-                                                <span className="material-symbols-outlined text-sm text-yellow-400 fill-1">star</span>
-                                            </div>
-                                            <span className="text-xs text-text-sub">Rating</span>
-                                        </div>
-                                    </div>
-                                    <button className="mt-4 w-full rounded-lg bg-red-50 py-2 text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors">
-                                        Review Issue
-                                    </button>
-                                </div>
-
-                                {/* Card 5 */}
-                                <div className="group relative flex flex-col justify-between rounded-xl border border-border-light bg-surface-light p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:border-border-dark dark:bg-surface-dark">
-                                    <div className="absolute right-4 top-4">
-                                        <button className="text-text-sub hover:text-primary">
-                                            <span className="material-symbols-outlined">more_vert</span>
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                        <div className="relative mb-4 h-20 w-20 overflow-hidden rounded-full border-4 border-background-light dark:border-background-dark">
-                                            <img alt="EcoTravel Logo" className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRuJHzh5jPcfXRrxM44wxZOOPpfwi3mR4MUhFLc6SCzajv90Nj8_b7faN6p4eOUuRxp9rTvIFxYM4yepIDJHlRghb2KE6FdFIl1vVleHpOgDSjZ8AAMuM0BSs89u_4neMoGtcnKr7h-cs-y6Yp87HQOC97iQEx-YHdnNWG8DzTLC_IyARu3iZEsh7pNY_1JKl0KY6NkEAH2FQNfe8FxAZNYKLqvA5koRrJbEZERSNtyeJ9Rc90pFKhVcP17PSOryRVacobuCsAZA0" />
-                                            <div className="absolute bottom-0 right-0 h-5 w-5 rounded-full border-2 border-white bg-green-500"></div>
-                                        </div>
-                                        <h3 className="text-lg font-bold text-text-main dark:text-white">EcoTravel</h3>
-                                        <p className="text-sm text-text-sub">Europe</p>
-                                        <span className="mt-2 inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20 dark:bg-green-900/30 dark:text-green-400">Verified</span>
-                                    </div>
-                                    <div className="mt-6 grid grid-cols-2 divide-x divide-border-light border-t border-border-light pt-4 dark:divide-border-dark dark:border-border-dark">
-                                        <div className="flex flex-col items-center px-2">
-                                            <span className="text-lg font-bold text-text-main dark:text-white">204</span>
-                                            <span className="text-xs text-text-sub">Vehicles</span>
-                                        </div>
-                                        <div className="flex flex-col items-center px-2">
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-lg font-bold text-text-main dark:text-white">4.7</span>
-                                                <span className="material-symbols-outlined text-sm text-yellow-400 fill-1">star</span>
-                                            </div>
-                                            <span className="text-xs text-text-sub">Rating</span>
-                                        </div>
-                                    </div>
-                                    <button className="mt-4 w-full rounded-lg bg-primary/10 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white transition-colors">
-                                        View Profile
-                                    </button>
-                                </div>
-
-                                {/* Card 6 */}
-                                <div className="group relative flex flex-col justify-between rounded-xl border border-border-light bg-surface-light p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:border-border-dark dark:bg-surface-dark">
-                                    <div className="absolute right-4 top-4">
-                                        <button className="text-text-sub hover:text-primary">
-                                            <span className="material-symbols-outlined">more_vert</span>
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                        <div className="relative mb-4 h-20 w-20 overflow-hidden rounded-full border-4 border-background-light dark:border-background-dark">
-                                            <img alt="QuickVans Logo" className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCubYyrEGGwE0AFyrnkLGm_zPsKYTJ7_eLJ4xwnX7PQ-beF6M76Lub2JfHqX4T1OaF6AxUYKy6Yk1EJ4ipp2FYZRtswIk-2g-tAn6lISr0RwlMG5YIKd97XbDpKQAfVrzRR-hCwjwclNjrKjUzLsp1aJuH2XU3IcA_TQLuz-42FXwvpzpKAErckHx7bfMtVoR3wvpQ_VZsLC4drByy0TlcH8Jc1bQlOquKnYmqtrlA9yz22rnF1Mixq_eRjScSCPopbbdSSCA6PU1Y" />
-                                            <div className="absolute bottom-0 right-0 h-5 w-5 rounded-full border-2 border-white bg-green-500"></div>
-                                        </div>
-                                        <h3 className="text-lg font-bold text-text-main dark:text-white">QuickVans</h3>
-                                        <p className="text-sm text-text-sub">North America</p>
-                                        <span className="mt-2 inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20 dark:bg-green-900/30 dark:text-green-400">Verified</span>
-                                    </div>
-                                    <div className="mt-6 grid grid-cols-2 divide-x divide-border-light border-t border-border-light pt-4 dark:divide-border-dark dark:border-border-dark">
-                                        <div className="flex flex-col items-center px-2">
-                                            <span className="text-lg font-bold text-text-main dark:text-white">56</span>
-                                            <span className="text-xs text-text-sub">Vehicles</span>
-                                        </div>
-                                        <div className="flex flex-col items-center px-2">
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-lg font-bold text-text-main dark:text-white">4.5</span>
-                                                <span className="material-symbols-outlined text-sm text-yellow-400 fill-1">star</span>
-                                            </div>
-                                            <span className="text-xs text-text-sub">Rating</span>
-                                        </div>
-                                    </div>
-                                    <button className="mt-4 w-full rounded-lg bg-primary/10 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white transition-colors">
-                                        View Profile
-                                    </button>
-                                </div>
-                            </div>
+                            )}
 
                             {/* Pagination */}
                             <div className="mt-8 flex items-center justify-between border-t border-border-light pt-6 dark:border-border-dark">

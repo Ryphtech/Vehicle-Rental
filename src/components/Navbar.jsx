@@ -33,6 +33,10 @@ export default function Navbar() {
                 <Link to="/search" className="text-sm font-medium text-text-main hover:text-primary transition-colors">Vehicles</Link>
                 <a className="text-sm font-medium text-text-main hover:text-primary transition-colors" href="#">Destinations</a>
                 <a className="text-sm font-medium text-text-main hover:text-primary transition-colors" href="#">About</a>
+                <a className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors flex items-center gap-1" href="/#first-aid">
+                    <span className="material-symbols-outlined text-[18px]">medical_services</span>
+                    First Aid
+                </a>
             </nav>
             <div className="flex items-center gap-4">
                 {!currentUser ? (
@@ -56,11 +60,11 @@ export default function Navbar() {
                             {/* Dropdown menu */}
                             <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right z-50">
                                 <div className="p-2 flex flex-col gap-1">
-                                    <Link to={userData?.role === 'vendor' ? '/vendor/dashboard' : '/settings'} className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary rounded-lg flex items-center gap-2 transition-colors">
+                                    <Link to={userData?.role === 'admin' ? '/admin' : userData?.role === 'vendor' ? '/vendor/dashboard' : '/settings'} className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary rounded-lg flex items-center gap-2 transition-colors">
                                         <span className="material-symbols-outlined text-lg">
-                                            {userData?.role === 'vendor' ? 'dashboard' : 'person'}
+                                            {userData?.role === 'admin' || userData?.role === 'vendor' ? 'dashboard' : 'person'}
                                         </span>
-                                        {userData?.role === 'vendor' ? 'Vendor Dashboard' : 'My Account'}
+                                        {userData?.role === 'admin' ? 'Admin Dashboard' : userData?.role === 'vendor' ? 'Vendor Dashboard' : 'My Account'}
                                     </Link>
                                     <Link to="/dev-tools" className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary rounded-lg flex items-center gap-2 transition-colors">
                                         <span className="material-symbols-outlined text-lg">code</span>

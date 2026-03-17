@@ -24,6 +24,15 @@ export default function Home() {
 
         fetchFeatured();
     }, []);
+
+    useEffect(() => {
+        if (window.location.hash) {
+            setTimeout(() => {
+                const el = document.getElementById(window.location.hash.substring(1));
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }, 300);
+        }
+    }, []);
     return (
         <div className="flex flex-col min-h-screen">
             <Navbar />
@@ -181,6 +190,58 @@ export default function Home() {
                                 </div>
                                 <h3 className="text-xl font-bold text-text-main mb-2">Best Price Guarantee</h3>
                                 <p className="text-text-muted">We offer competitive pricing and no hidden fees, ensuring you get the best value for money.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* First Aid Precautions Section */}
+                <section id="first-aid" className="py-16 bg-red-50/40 border-y border-red-100 flex flex-col items-center">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+                        <div className="text-center mb-12">
+                            <span className="flex items-center justify-center gap-2 text-red-600 font-bold tracking-widest uppercase text-sm mb-2">
+                                <span className="material-symbols-outlined text-red-500">healing</span>
+                                Emergency & Safety Guidelines
+                            </span>
+                            <h2 className="text-3xl font-bold text-slate-900 mb-4">First Aid Precautions for Accidents</h2>
+                            <p className="text-slate-600 max-w-2xl mx-auto">Your safety is our priority. In the event of an accident or medical emergency while traveling, please follow these essential steps to ensure everyone's well-being.</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="p-6 rounded-xl bg-white border border-red-100/80 shadow-sm hover:shadow-md transition-shadow">
+                                <span className="text-3xl font-bold text-red-600 mb-3 block">01</span>
+                                <h3 className="text-lg font-bold text-slate-900 mb-2">Secure the Scene</h3>
+                                <ul className="text-sm text-slate-600 space-y-2 list-disc pl-4">
+                                    <li>Turn on vehicle hazard lights immediately.</li>
+                                    <li>Turn off the ignition key to prevent fires.</li>
+                                    <li>Check surroundings for safe exit points.</li>
+                                </ul>
+                            </div>
+                            <div className="p-6 rounded-xl bg-white border border-red-100/80 shadow-sm hover:shadow-md transition-shadow">
+                                <span className="text-3xl font-bold text-red-600 mb-3 block">02</span>
+                                <h3 className="text-lg font-bold text-slate-900 mb-2">Check for Injuries</h3>
+                                <ul className="text-sm text-slate-600 space-y-2 list-disc pl-4">
+                                    <li>Evaluate breathing and consciousness first.</li>
+                                    <li>Do not move injured persons unless necessary.</li>
+                                    <li>Apply pressure to bleeding wounds with cloth.</li>
+                                </ul>
+                            </div>
+                            <div className="p-6 rounded-xl bg-white border border-red-100/80 shadow-sm hover:shadow-md transition-shadow">
+                                <span className="text-3xl font-bold text-red-600 mb-3 block">03</span>
+                                <h3 className="text-lg font-bold text-slate-900 mb-2">Call for Help</h3>
+                                <ul className="text-sm text-slate-600 space-y-2 list-disc pl-4">
+                                    <li>Dial **911** or local emergency immediately.</li>
+                                    <li>State location accurately (use GPS coords).</li>
+                                    <li>Describe and count the number of injured.</li>
+                                </ul>
+                            </div>
+                            <div className="p-6 rounded-xl bg-white border border-red-100/80 shadow-sm hover:shadow-md transition-shadow">
+                                <span className="text-3xl font-bold text-red-600 mb-3 block">04</span>
+                                <h3 className="text-lg font-bold text-slate-900 mb-2">Notify Support</h3>
+                                <ul className="text-sm text-slate-600 space-y-2 list-disc pl-4">
+                                    <li>Use our app SOS/Support prompt.</li>
+                                    <li>Document names of involved parties.</li>
+                                    <li>Support line: **+1 (800) 123-HELP**</li>
+                                </ul>
                             </div>
                         </div>
                     </div>

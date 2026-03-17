@@ -1,14 +1,109 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
 
 export default function AdminDashboard() {
     const { currentUser, userData } = useAuth();
     const navigate = useNavigate();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    // Dashboard Data State
+    const [stats, setStats] = useState({
+        revenue: 0,
+        activeBookings: 0,
+        totalVendors: 0,
+        pendingApprovals: 0
+    });
+    const [vehicleAvailability, setVehicleAvailability] = useState({
+        Sedan: 0,
+        SUV: 0,
+        Other: 0
+    });
+    const [recentBookings, setRecentBookings] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                setLoading(true);
+
+                // 1. Count Vendors
+                const vendorQ = query(collection(db, "users"), where("role", "==", "vendor"));
+                const vendorSnap = await getDocs(vendorQ);
+                const vendorsCount = vendorSnap.size;
+
+                // 2. Fetch Bookings (for counts & recent activities)
+                const bookingSnap = await getDocs(collection(db, "bookings"));
+                let totalRevenue = 0;
+                let activeCount = 0;
+                
+                const bookingsList = [];
+                bookingSnap.forEach(docSnap => {
+                    const bData = { id: docSnap.id, ...docSnap.data() };
+                    bookingsList.push(bData);
+                    
+                    if (bData.status === 'confirmed' || bData.status === 'active') {
+                        activeCount++;
+                    }
+                    if (bData.totalPrice) {
+                        totalRevenue += Number(bData.totalPrice);
+                    }
+                });
+
+                // 3. Fetch Vehicles for fleet distribution
+                const vehicleSnap = await getDocs(collection(db, "vehicles"));
+                let totalVehicles = vehicleSnap.size;
+                let vehicleCounts = { Sedan: 0, SUV: 0, Other: 0 };
+                
+                vehicleSnap.forEach(vDoc => {
+                    const vData = vDoc.data();
+                    const category = vData.category || 'Other';
+                    if (vehicleCounts[category] !== undefined) {
+                        vehicleCounts[category]++;
+                    } else {
+                        vehicleCounts.Other++;
+                    }
+                });
+
+                const totalForPct = totalVehicles > 0 ? totalVehicles : 1;
+                setVehicleAvailability({
+                    Sedan: Math.round((vehicleCounts.Sedan / totalForPct) * 100),
+                    SUV: Math.round((vehicleCounts.SUV / totalForPct) * 100),
+                    Other: Math.round((vehicleCounts.Other / totalForPct) * 100)
+                });
+
+                // Get pending vendors/approvals from user table if status is pending
+                const pendingQ = query(collection(db, "users"), where("role", "==", "vendor"), where("status", "==", "pending"));
+                const pendingSnap = await getDocs(pendingQ);
+
+                setStats({
+                    revenue: totalRevenue,
+                    activeBookings: activeCount,
+                    totalVendors: vendorsCount,
+                    pendingApprovals: pendingSnap.size
+                });
+
+                // Sort and limit recent bookings
+                const sortedRecent = bookingsList
+                    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+                    .slice(0, 5);
+                
+                setRecentBookings(sortedRecent);
+
+            } catch (error) {
+                console.error("Error fetching dashboard data:", error);
+                toast.error("Failed to load dashboard metrics.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, []);
 
     const handleLogout = async () => {
         try {
@@ -34,7 +129,7 @@ export default function AdminDashboard() {
                     <div className="h-16 flex items-center px-6 border-b border-slate-100 dark:border-slate-800">
                         <div className="flex items-center gap-2 text-primary">
                             <span className="material-symbols-outlined text-3xl">local_taxi</span>
-                            <span className="text-slate-900 dark:text-white text-lg font-bold">TravelAdmin</span>
+                            <span className="text-slate-900 dark:text-white text-lg font-bold">Wheels Live</span>
                         </div>
                     </div>
 
@@ -88,7 +183,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setIsSidebarOpen(true)} className="text-slate-500 hover:text-slate-700 p-1">
                                 <span className="material-symbols-outlined">menu</span>
                             </button>
-                            <span className="text-lg font-bold text-slate-900 dark:text-white">TravelAdmin</span>
+                            <span className="text-lg font-bold text-slate-900 dark:text-white">Wheels Live</span>
                         </div>
                         <div className="hidden lg:flex items-center text-sm text-slate-500 dark:text-slate-400">
                             <Link to="/" className="hover:text-primary transition-colors">Home</Link>
@@ -152,12 +247,14 @@ export default function AdminDashboard() {
                                         <span className="material-symbols-outlined">payments</span>
                                     </div>
                                     <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 px-2 py-1 rounded-full">
-                                        <span className="material-symbols-outlined text-sm mr-1">trending_up</span> +12%
+                                        <span className="material-symbols-outlined text-sm mr-1">trending_up</span> Live
                                     </span>
                                 </div>
                                 <div>
                                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Total Revenue</p>
-                                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">$124,500</h3>
+                                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                        {loading ? "..." : `$${stats.revenue.toLocaleString()}`}
+                                    </h3>
                                 </div>
                             </div>
                             {/* Card 2 */}
@@ -167,12 +264,14 @@ export default function AdminDashboard() {
                                         <span className="material-symbols-outlined">directions_car</span>
                                     </div>
                                     <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 px-2 py-1 rounded-full">
-                                        <span className="material-symbols-outlined text-sm mr-1">trending_up</span> +5%
+                                        <span className="material-symbols-outlined text-sm mr-1">trending_up</span> Live
                                     </span>
                                 </div>
                                 <div>
                                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Active Bookings</p>
-                                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">1,245</h3>
+                                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                        {loading ? "..." : stats.activeBookings}
+                                    </h3>
                                 </div>
                             </div>
                             {/* Card 3 */}
@@ -182,12 +281,14 @@ export default function AdminDashboard() {
                                         <span className="material-symbols-outlined">storefront</span>
                                     </div>
                                     <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 px-2 py-1 rounded-full">
-                                        <span className="material-symbols-outlined text-sm mr-1">trending_up</span> +2%
+                                        <span className="material-symbols-outlined text-sm mr-1">trending_up</span> Live
                                     </span>
                                 </div>
                                 <div>
                                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Total Vendors</p>
-                                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">86</h3>
+                                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                        {loading ? "..." : stats.totalVendors}
+                                    </h3>
                                 </div>
                             </div>
                             {/* Card 4 */}
@@ -197,12 +298,14 @@ export default function AdminDashboard() {
                                         <span className="material-symbols-outlined">pending_actions</span>
                                     </div>
                                     <span className="flex items-center text-xs font-medium text-rose-600 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400 px-2 py-1 rounded-full">
-                                        <span className="material-symbols-outlined text-sm mr-1">trending_down</span> -8%
+                                        Status
                                     </span>
                                 </div>
                                 <div>
                                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Pending Approvals</p>
-                                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">24</h3>
+                                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                        {loading ? "..." : stats.pendingApprovals}
+                                    </h3>
                                 </div>
                             </div>
                         </div>
@@ -213,14 +316,10 @@ export default function AdminDashboard() {
                             <div className="lg:col-span-2 bg-white dark:bg-[#1a2632] p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
                                 <div className="flex items-center justify-between mb-6">
                                     <div>
-                                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Monthly Booking Trends</h3>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400">Total 2,840 bookings in last 6 months</p>
-                                    </div>
-                                    <select className="text-sm border-slate-200 dark:border-slate-600 bg-transparent rounded-lg text-slate-600 dark:text-slate-300 focus:ring-primary focus:border-primary outline-none">
-                                        <option>Last 6 Months</option>
-                                        <option>Last Year</option>
-                                    </select>
+                                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Dashboard Monitoring</h3>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Status is updated real-time from Firestore.</p>
                                 </div>
+                            </div>
                                 {/* Custom CSS Bar Chart visualization */}
                                 <div className="h-64 flex items-end justify-between gap-2 md:gap-6 pt-4 px-2">
                                     {/* Jan */}
@@ -307,24 +406,24 @@ export default function AdminDashboard() {
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between text-sm mb-1">
                                             <span className="text-slate-600 dark:text-slate-400">Sedans</span>
-                                            <span className="font-medium text-slate-900 dark:text-white">85%</span>
+                                            <span className="font-medium text-slate-900 dark:text-white">{loading ? '...' : `${vehicleAvailability.Sedan}%`}</span>
                                         </div>
                                         <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2">
-                                            <div className="bg-primary h-2 rounded-full" style={{ width: '85%' }}></div>
+                                            <div className="bg-primary h-2 rounded-full" style={{ width: `${vehicleAvailability.Sedan}%` }}></div>
                                         </div>
                                         <div className="flex items-center justify-between text-sm mb-1 mt-2">
                                             <span className="text-slate-600 dark:text-slate-400">SUVs</span>
-                                            <span className="font-medium text-slate-900 dark:text-white">62%</span>
+                                            <span className="font-medium text-slate-900 dark:text-white">{loading ? '...' : `${vehicleAvailability.SUV}%`}</span>
                                         </div>
                                         <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2">
-                                            <div className="bg-purple-500 h-2 rounded-full" style={{ width: '62%' }}></div>
+                                            <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${vehicleAvailability.SUV}%` }}></div>
                                         </div>
                                         <div className="flex items-center justify-between text-sm mb-1 mt-2">
-                                            <span className="text-slate-600 dark:text-slate-400">Vans & Buses</span>
-                                            <span className="font-medium text-slate-900 dark:text-white">40%</span>
+                                            <span className="text-slate-600 dark:text-slate-400">Other Fleet</span>
+                                            <span className="font-medium text-slate-900 dark:text-white">{loading ? '...' : `${vehicleAvailability.Other}%`}</span>
                                         </div>
                                         <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2">
-                                            <div className="bg-orange-500 h-2 rounded-full" style={{ width: '40%' }}></div>
+                                            <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${vehicleAvailability.Other}%` }}></div>
                                         </div>
                                     </div>
                                 </div>
@@ -359,114 +458,51 @@ export default function AdminDashboard() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                                        {/* Row 1 */}
-                                        <tr className="bg-white dark:bg-[#1a2632] hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">#TRV-8942</td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">JD</div>
-                                                    <div>
-                                                        <p className="font-medium text-slate-900 dark:text-white">John Doe</p>
-                                                        <p className="text-xs text-slate-500">Corporate</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">Toyota Camry (SD-402)</td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">Airport → Downtown</td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">Oct 24, 2023</td>
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                                    Confirmed
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button className="text-slate-400 hover:text-primary transition-colors">
-                                                    <span className="material-symbols-outlined">more_vert</span>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        {/* Row 2 */}
-                                        <tr className="bg-white dark:bg-[#1a2632] hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">#TRV-8941</td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-xs">AS</div>
-                                                    <div>
-                                                        <p className="font-medium text-slate-900 dark:text-white">Alice Smith</p>
-                                                        <p className="text-xs text-slate-500">Private</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">Mercedes Sprinter (VN-105)</td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">City Tour (4h)</td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">Oct 24, 2023</td>
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                                    Pending
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button className="text-slate-400 hover:text-primary transition-colors">
-                                                    <span className="material-symbols-outlined">more_vert</span>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        {/* Row 3 */}
-                                        <tr className="bg-white dark:bg-[#1a2632] hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">#TRV-8940</td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs">MJ</div>
-                                                    <div>
-                                                        <p className="font-medium text-slate-900 dark:text-white">Mike Johnson</p>
-                                                        <p className="text-xs text-slate-500">Corporate</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">BMW X5 (SU-221)</td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">Hotel → Conference Ctr</td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">Oct 23, 2023</td>
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                                                    Cancelled
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button className="text-slate-400 hover:text-primary transition-colors">
-                                                    <span className="material-symbols-outlined">more_vert</span>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        {/* Row 4 */}
-                                        <tr className="bg-white dark:bg-[#1a2632] hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">#TRV-8939</td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold text-xs">SL</div>
-                                                    <div>
-                                                        <p className="font-medium text-slate-900 dark:text-white">Sarah Lee</p>
-                                                        <p className="text-xs text-slate-500">Private</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">Honda Civic (SD-405)</td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">Central Station → Suburbs</td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">Oct 23, 2023</td>
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                                    Confirmed
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button className="text-slate-400 hover:text-primary transition-colors">
-                                                    <span className="material-symbols-outlined">more_vert</span>
-                                                </button>
-                                            </td>
-                                        </tr>
+                                        {loading ? (
+                                            <tr>
+                                                <td colSpan="7" className="px-6 py-4 text-center text-text-sub">Loading activities...</td>
+                                            </tr>
+                                        ) : recentBookings.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="7" className="px-6 py-4 text-center text-text-sub">No recent bookings found.</td>
+                                            </tr>
+                                        ) : (
+                                            recentBookings.map((booking) => (
+                                                <tr key={booking.id} className="bg-white dark:bg-[#1a2632] hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">#{booking.id?.substring(0, 8).toUpperCase() || 'N/A'}</td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
+                                                                {booking.customerName ? booking.customerName.charAt(0).toUpperCase() : 'U'}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-medium text-slate-900 dark:text-white">{booking.customerName || booking.userId || 'User'}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-slate-600 dark:text-slate-300">{booking.vehicleName || 'Vehicle'}</td>
+                                                    <td className="px-6 py-4 text-slate-600 dark:text-slate-300">{booking.totalPrice ? `$${Number(booking.totalPrice).toLocaleString()}` : '$0'}</td>
+                                                    <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                                                        {booking.createdAt?.seconds ? new Date(booking.createdAt.seconds * 1000).toLocaleDateString() : 'Pending'}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                                                            booking.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' :
+                                                            booking.status === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800' :
+                                                            'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200 dark:border-rose-800'
+                                                        }`}>
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${booking.status === 'confirmed' ? 'bg-emerald-500' : booking.status === 'pending' ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
+                                                            {booking.status || 'Pending'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <button className="text-slate-400 hover:text-primary transition-colors">
+                                                            <span className="material-symbols-outlined">more_vert</span>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
                                     </tbody>
                                 </table>
                             </div>

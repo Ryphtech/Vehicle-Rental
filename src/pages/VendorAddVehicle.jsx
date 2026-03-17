@@ -139,9 +139,9 @@ export default function VendorAddVehicle() {
                         {/* Navigation Links */}
                         <nav className="hidden md:flex gap-8">
                             <Link to="/vendor" className="text-sm font-medium text-slate-600 hover:text-primary transition-colors">Dashboard</Link>
-                            <a className="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="#">Bookings</a>
+                            <Link to="/vendor/bookings" className="text-sm font-medium text-slate-600 hover:text-primary transition-colors">Bookings</Link>
                             <Link to="/vendor" className="text-sm font-medium text-primary font-semibold">My Fleet</Link>
-                            <a className="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="#">Earnings</a>
+                            <a className="text-sm font-medium text-slate-600 hover:text-primary transition-colors" href="#earnings">Earnings</a>
                         </nav>
                         {/* User Profile */}
                         <div className="relative group cursor-pointer inline-block">

@@ -1,8 +1,103 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 
 export default function AccountSettings() {
+    const { currentUser } = useAuth();
+    const [loading, setLoading] = useState(true);
+    const [profileData, setProfileData] = useState({
+        fullName: '',
+        email: '',
+        phone: '',
+        address: '',
+        bloodGroup: '',
+        allergies: '',
+        emContactName: '',
+        emContactPhone: '',
+        emInstructions: ''
+    });
+
+    useEffect(() => {
+        const fetchUserProfile = async () => {
+            if (!currentUser) return;
+            try {
+                const docRef = doc(db, "users", currentUser.uid);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    setProfileData({
+                        fullName: data.fullName || '',
+                        email: data.email || currentUser.email || '',
+                        phone: data.phone || '',
+                        address: data.address || '',
+                        bloodGroup: data.bloodGroup || '',
+                        allergies: data.allergies || '',
+                        emContactName: data.emContactName || '',
+                        emContactPhone: data.emContactPhone || '',
+                        emInstructions: data.emInstructions || ''
+                    });
+                }
+            } catch (error) {
+                console.error("Error fetching user profile:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUserProfile();
+    }, [currentUser]);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setProfileData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSaveProfile = async () => {
+        if (!currentUser) return;
+        try {
+            const docRef = doc(db, "users", currentUser.uid);
+            await updateDoc(docRef, {
+                fullName: profileData.fullName,
+                phone: profileData.phone,
+                address: profileData.address
+            });
+            toast.success("Profile updated successfully!");
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            toast.error("Failed to update profile.");
+        }
+    };
+
+    const handleSaveMedicalInfo = async () => {
+        if (!currentUser) return;
+        try {
+            const docRef = doc(db, "users", currentUser.uid);
+            await updateDoc(docRef, {
+                bloodGroup: profileData.bloodGroup,
+                allergies: profileData.allergies,
+                emContactName: profileData.emContactName,
+                emContactPhone: profileData.emContactPhone,
+                emInstructions: profileData.emInstructions
+            });
+            toast.success("Medical Information updated successfully!");
+        } catch (error) {
+            console.error("Error updating medical info:", error);
+            toast.error("Failed to update medical info.");
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background-light">
+                <p className="text-slate-500 font-medium">Loading settings...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-background-light font-display text-slate-900 min-h-screen flex flex-col">
             <Navbar />
@@ -31,6 +126,10 @@ export default function AccountSettings() {
                                     <span className="material-symbols-outlined fill-1">settings</span>
                                     <span className="font-medium">Account Settings</span>
                                 </Link>
+                                <a className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" href="#">
+                                    <span className="material-symbols-outlined text-red-500">medical_services</span>
+                                    <span className="font-medium">Emergency Info</span>
+                                </a>
                                 <a className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" href="#">
                                     <span className="material-symbols-outlined">payments</span>
                                     <span className="font-medium">Payment Methods</span>
@@ -68,23 +167,69 @@ export default function AccountSettings() {
                             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-1">
                                     <label className="text-sm font-medium text-slate-700">Full Name</label>
-                                    <input className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all" type="text" defaultValue="John Doe" />
+                                    <input name="fullName" value={profileData.fullName} onChange={handleChange} className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all" type="text" />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-sm font-medium text-slate-700">Email Address</label>
-                                    <input className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all" type="email" defaultValue="john.doe@example.com" />
+                                    <input name="email" value={profileData.email} disabled className="w-full rounded-lg border-slate-200 bg-slate-100 text-slate-400 outline-none px-3 py-2 border cursor-not-allowed" type="email" />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-sm font-medium text-slate-700">Phone Number</label>
-                                    <input className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all" type="tel" defaultValue="+1 (555) 000-0000" />
+                                    <input name="phone" value={profileData.phone} onChange={handleChange} className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all" type="tel" />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-sm font-medium text-slate-700">Address</label>
-                                    <input className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all" type="text" defaultValue="123 Travel Lane, Suite 100" />
+                                    <input name="address" value={profileData.address} onChange={handleChange} className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all" type="text" />
                                 </div>
                             </div>
                             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                                <button className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-blue-600 transition-colors shadow-sm">Save Profile Changes</button>
+                                <button onClick={handleSaveProfile} className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-blue-600 transition-colors shadow-sm">Save Profile Changes</button>
+                            </div>
+                        </section>
+
+                        {/* Emergency Medical Information Section */}
+                        <section className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-8">
+                            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-red-500">medical_services</span>
+                                    Emergency Medical Info
+                                </h2>
+                                <button className="text-sm font-medium text-primary hover:text-blue-700 transition-colors">Edit details</button>
+                            </div>
+                            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-slate-700">Blood Group</label>
+                                    <select name="bloodGroup" value={profileData.bloodGroup} onChange={handleChange} className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all">
+                                        <option value="">Select Blood Group</option>
+                                        <option value="A+">A+</option>
+                                        <option value="A-">A-</option>
+                                        <option value="B+">B+</option>
+                                        <option value="B-">B-</option>
+                                        <option value="O+">O+</option>
+                                        <option value="O-">O-</option>
+                                        <option value="AB+">AB+</option>
+                                        <option value="AB-">AB-</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-slate-700">Allergies / Medical Conditions</label>
+                                    <input name="allergies" value={profileData.allergies} onChange={handleChange} className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all" type="text" placeholder="e.g., Penicillin, Asthma" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-slate-700">Emergency Contact Name</label>
+                                    <input name="emContactName" value={profileData.emContactName} onChange={handleChange} className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all" type="text" placeholder="Full Name" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-slate-700">Emergency Contact Phone</label>
+                                    <input name="emContactPhone" value={profileData.emContactPhone} onChange={handleChange} className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all" type="tel" placeholder="+1 (555) 000-0000" />
+                                </div>
+                                <div className="space-y-1 md:col-span-2">
+                                    <label className="text-sm font-medium text-slate-700">Emergency Instructions / Notes</label>
+                                    <textarea name="emInstructions" value={profileData.emInstructions} onChange={handleChange} className="w-full rounded-lg border-slate-200 bg-slate-50 text-slate-900 focus:border-primary focus:ring-primary outline-none px-3 py-2 border transition-all" rows="3" placeholder="Any special instructions for first responders..."></textarea>
+                                </div>
+                            </div>
+                            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                                <button onClick={handleSaveMedicalInfo} className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-blue-600 transition-colors shadow-sm">Save Medical Info</button>
                             </div>
                         </section>
 

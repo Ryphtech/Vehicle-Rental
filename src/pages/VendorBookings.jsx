@@ -91,8 +91,8 @@ export default function VendorBookings() {
                     <div className="hidden lg:flex items-center gap-9">
                         <Link className="text-slate-900 text-sm font-medium leading-normal hover:text-primary transition-colors" to="/vendor">Dashboard</Link>
                         <Link className="text-primary text-sm font-bold leading-normal" to="/vendor/bookings">Bookings</Link>
-                        <a className="text-slate-900 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Vehicles</a>
-                        <a className="text-slate-900 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#">Reports</a>
+                        <Link className="text-slate-900 text-sm font-medium leading-normal hover:text-primary transition-colors" to="/vendor">Vehicles</Link>
+                        <a className="text-slate-900 text-sm font-medium leading-normal hover:text-primary transition-colors" href="#reports">Reports</a>
                     </div>
                 </div>
                 <div className="flex flex-1 justify-end gap-8 items-center">

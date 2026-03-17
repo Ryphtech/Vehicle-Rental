@@ -10,6 +10,7 @@ export default function VendorDashboard() {
     const { currentUser, userData } = useAuth();
     const navigate = useNavigate();
     const [vehicles, setVehicles] = useState([]);
+    const [stats, setStats] = useState({ earnings: 0, upcomingRentals: 0 });
     const [loading, setLoading] = useState(true);
 
     const handleLogout = async () => {
@@ -36,24 +37,60 @@ export default function VendorDashboard() {
     };
 
     useEffect(() => {
-        const fetchVehicles = async () => {
+        const fetchDashboardData = async () => {
             if (!currentUser) return;
             try {
+                // 1. Fetch vendor's vehicles
                 const q = query(collection(db, 'vehicles'), where('vendorId', '==', currentUser.uid));
                 const querySnapshot = await getDocs(q);
                 const vehicleList = [];
+                const vehicleIds = [];
                 querySnapshot.forEach((doc) => {
                     vehicleList.push({ id: doc.id, ...doc.data() });
+                    vehicleIds.push(doc.id);
                 });
                 setVehicles(vehicleList);
+
+                // 2. Fetch all bookings and match with vendor's vehicles
+                const bookingSnap = await getDocs(collection(db, 'bookings'));
+                let totalEarnings = 0;
+                let upcomingCount = 0;
+                const today = new Date();
+
+                bookingSnap.forEach(docSnap => {
+                    const bData = docSnap.data();
+                    
+                    // Check if book vehicleId belongs to this vendor
+                    if (vehicleIds.includes(bData.vehicleId)) {
+                        if (bData.status === 'confirmed' || bData.status === 'completed') {
+                            totalEarnings += Number(bData.totalPrice || 0);
+                        }
+
+                        if (bData.status === 'confirmed') {
+                            const startDate = bData.startDate ? new Date(bData.startDate) : null;
+                            if (startDate && startDate >= today) {
+                                upcomingCount++;
+                            } else if (!startDate) {
+                                // Fallback
+                                upcomingCount++;
+                            }
+                        }
+                    }
+                });
+
+                setStats({
+                    earnings: totalEarnings,
+                    upcomingRentals: upcomingCount
+                });
+
             } catch (error) {
-                console.error("Error fetching vehicles:", error);
+                console.error("Error fetching vendor dashboard data:", error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchVehicles();
+        fetchDashboardData();
     }, [currentUser]);
 
     return (
@@ -75,10 +112,10 @@ export default function VendorDashboard() {
                                 <div className="flex flex-1 justify-end gap-8">
                                     <nav className="hidden md:flex items-center gap-9">
                                         <Link to="/vendor" className="text-primary text-sm font-medium leading-normal">Dashboard</Link>
-                                        <a className="text-slate-600 hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">Fleet</a>
+                                        <Link to="/vendor" className="text-slate-600 hover:text-primary transition-colors text-sm font-medium leading-normal">Fleet</Link>
                                         <Link to="/vendor/bookings" className="text-slate-600 hover:text-primary transition-colors text-sm font-medium leading-normal">Bookings</Link>
-                                        <a className="text-slate-600 hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">Earnings</a>
-                                        <a className="text-slate-600 hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">Settings</a>
+                                        <a className="text-slate-600 hover:text-primary transition-colors text-sm font-medium leading-normal" href="#earnings">Earnings</a>
+                                        <Link to="/settings" className="text-slate-600 hover:text-primary transition-colors text-sm font-medium leading-normal">Settings</Link>
                                     </nav>
                                     <div className="relative group cursor-pointer inline-block">
                                         <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-slate-200 flex items-center justify-center text-primary font-bold bg-white" title={userData?.fullName || 'Vendor'}>
@@ -121,7 +158,7 @@ export default function VendorDashboard() {
                                         <p className="text-slate-500 text-sm font-medium leading-normal">Vehicles Active</p>
                                         <span className="material-symbols-outlined text-primary">directions_car</span>
                                     </div>
-                                    <p className="text-slate-900 tracking-tight text-3xl font-bold leading-tight mt-2">{vehicles.length}</p>
+                                    <p className="text-slate-900 tracking-tight text-3xl font-bold leading-tight mt-2">{loading ? "..." : vehicles.length}</p>
                                     <div className="flex items-center gap-1 text-emerald-600 text-xs font-medium mt-1">
                                         <span className="material-symbols-outlined text-sm">check_circle</span>
                                         <span>Up to date</span>
@@ -132,10 +169,10 @@ export default function VendorDashboard() {
                                         <p className="text-slate-500 text-sm font-medium leading-normal">Total Earnings</p>
                                         <span className="material-symbols-outlined text-primary">payments</span>
                                     </div>
-                                    <p className="text-slate-900 tracking-tight text-3xl font-bold leading-tight mt-2">$0</p>
+                                    <p className="text-slate-900 tracking-tight text-3xl font-bold leading-tight mt-2">{loading ? "..." : `$${stats.earnings}`}</p>
                                     <div className="flex items-center gap-1 text-emerald-600 text-xs font-medium mt-1">
                                         <span className="material-symbols-outlined text-sm">trending_up</span>
-                                        <span>New Vendor!</span>
+                                        <span>Live</span>
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-1 rounded-xl p-6 border border-slate-200 bg-white shadow-sm">
@@ -143,7 +180,7 @@ export default function VendorDashboard() {
                                         <p className="text-slate-500 text-sm font-medium leading-normal">Upcoming Rentals</p>
                                         <span className="material-symbols-outlined text-primary">calendar_month</span>
                                     </div>
-                                    <p className="text-slate-900 tracking-tight text-3xl font-bold leading-tight mt-2">0</p>
+                                    <p className="text-slate-900 tracking-tight text-3xl font-bold leading-tight mt-2">{loading ? "..." : stats.upcomingRentals}</p>
                                     <div className="flex items-center gap-1 text-slate-400 text-xs font-medium mt-1">
                                         <span>Next 7 days</span>
                                     </div>
